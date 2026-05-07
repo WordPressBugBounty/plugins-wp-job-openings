@@ -1,10 +1,10 @@
-=== HireZoot – Job Listings, Career Page & Recruitment Tool ===
+=== HireZoot – (WP Job Openings) Job Listings, Career Page & Recruitment Tool ===
 Contributors: awsmin, aravindajith, anantajitjg, sarathar, adhun, nithi22
 Tags: jobs, job listing, job board, careers page, recruitment
 Requires at least: 6.0
 Tested up to: 6.9.4
 Requires PHP: 5.6
-Stable tag: 4.0.0
+Stable tag: trunk
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 Donate link: https://www.buymeacoffee.com/awsm
@@ -13,7 +13,9 @@ Create modern careers page, list jobs, and manage applications directly from you
 
 == Description ==
 
-### HireZoot (formerly WP Job Openings) makes hiring simple. Add job listings, publish a clean careers page, and manage applications without leaving WordPress.
+### HireZoot (formerly WP Job Openings) makes hiring simple. 
+
+=== Add job listings, publish a clean careers page, and manage applications without leaving WordPress.===
 
 HireZoot is designed for teams that want a straightforward hiring workflow without unnecessary complexity. Install the plugin, add your job details, and your careers page is ready.
 
