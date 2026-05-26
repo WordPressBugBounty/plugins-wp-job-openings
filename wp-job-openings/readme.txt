@@ -1,10 +1,10 @@
 === HireZoot – (WP Job Openings) Job Listings, Career Page & Recruitment Tool ===
-Contributors: awsmin, aravindajith, anantajitjg, sarathar, adhun, nithi22
+Contributors: awsmin, aravindajith, anantajitjg, sarathar, adhun, nithi22, sruthi89, shilpaashokan94, vivekawsm, fathima54321
 Tags: jobs, job listing, job board, careers page, recruitment
 Requires at least: 6.0
-Tested up to: 6.9.4
+Tested up to: 7.0
 Requires PHP: 5.6
-Stable tag: trunk
+Stable tag: 4.0.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 Donate link: https://www.buymeacoffee.com/awsm
@@ -13,9 +13,7 @@ Create modern careers page, list jobs, and manage applications directly from you
 
 == Description ==
 
-### HireZoot (formerly WP Job Openings) makes hiring simple. 
-
-=== Add job listings, publish a clean careers page, and manage applications without leaving WordPress.===
+### HireZoot (formerly WP Job Openings) makes hiring simple. Add job listings, publish a clean careers page, and manage applications without leaving WordPress.
 
 HireZoot is designed for teams that want a straightforward hiring workflow without unnecessary complexity. Install the plugin, add your job details, and your careers page is ready.
 
@@ -116,8 +114,17 @@ Yes. You can view, filter, and manage applications from your dashboard.
 
 == Changelog ==
 
-= V 4.0.0 – 2026-05-06 =
+= V 4.0.1 – 2026-05-26 =
+Added: Block - "More Details" button text editing option in block inspector.
+Added: Block - Three button styles (None, Fill, Outline) for the "More Details" button.
+Added: Block - Search enabled by default.
+Added: Block - Pro badge locking for Stack layout, Multiple select filter, and Filtered list features.
+Improved: Block - Set block as default when the plugin is installed.
+Improved: Block - Padding controls for Classic and Modern pagination styles.
+Update: Default job listing layout changed from shortcode to block on the Job Listing page.
+Update: Added new application status badge in the Overview page recent application listing.
 
+= V 4.0.0 – 2026-05-06 =
 * Added: Block - Multi-select filters for job listings.
 * Added: Block - Sidebar filter placement and stack layout option.
 * Added: Block - Job sorting (Order By) support.
