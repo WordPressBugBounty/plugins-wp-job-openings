@@ -5,7 +5,7 @@
  * Description: HireZoot (formerly WP Job Openings) makes hiring simple. Add job listings, publish a clean careers page, and manage applications without leaving WordPress.
  * Author: AWSM Innovations
  * Author URI: https://awsm.in/
- * Version: 4.1.0
+ * Version: 4.1.1
  * Requires at least: 6.0
  * Requires PHP: 5.6
  * License: GPLv2
@@ -37,7 +37,7 @@ if ( ! defined( 'AWSM_JOBS_PLUGIN_URL' ) ) {
 	define( 'AWSM_JOBS_PLUGIN_URL', untrailingslashit( plugin_dir_url( __FILE__ ) ) );
 }
 if ( ! defined( 'AWSM_JOBS_PLUGIN_VERSION' ) ) {
-	define( 'AWSM_JOBS_PLUGIN_VERSION', '4.1.0' );
+	define( 'AWSM_JOBS_PLUGIN_VERSION', '4.1.1' );
 }
 if ( ! defined( 'AWSM_JOBS_UPLOAD_DIR_NAME' ) ) {
 	define( 'AWSM_JOBS_UPLOAD_DIR_NAME', 'awsm-job-openings' );
@@ -731,6 +731,37 @@ class AWSM_Job_Openings {
 				$job_id
 			)
 		);
+	}
+
+	/**
+	 * Get a job title for storing with an application (awsm_apply_for meta).
+	 *
+	 * The title is stored HTML-encoded, so it can never become live markup
+	 * and still shows exactly as entered once escaped on output (esc_html()
+	 * doesn't double-encode). Use get_job_title_plain_text() wherever the
+	 * stored value is used as plain text, e.g. mail subjects or exports.
+	 *
+	 * @since 4.1.1
+	 *
+	 * @param int $job_id Job post ID.
+	 * @return string
+	 */
+	public static function get_job_title_for_meta( $job_id ) {
+		return esc_html( get_the_title( $job_id ) );
+	}
+
+	/**
+	 * Decode a stored job title (awsm_apply_for meta) for plain-text use,
+	 * such as mail subjects, PDF text or CSV exports. Never print the result
+	 * into HTML without escaping it.
+	 *
+	 * @since 4.1.1
+	 *
+	 * @param string $job_title Stored job title.
+	 * @return string
+	 */
+	public static function get_job_title_plain_text( $job_title ) {
+		return html_entity_decode( (string) $job_title, ENT_QUOTES, get_bloginfo( 'charset' ) );
 	}
 
 	public static function get_applications( $job_id, $fields = 'all' ) {
