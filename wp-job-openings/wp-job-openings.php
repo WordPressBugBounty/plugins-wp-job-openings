@@ -5,7 +5,7 @@
  * Description: HireZoot (formerly WP Job Openings) makes hiring simple. Add job listings, publish a clean careers page, and manage applications without leaving WordPress.
  * Author: AWSM Innovations
  * Author URI: https://awsm.in/
- * Version: 4.2.2
+ * Version: 4.3.0
  * Requires at least: 6.0
  * Requires PHP: 5.6
  * License: GPLv2
@@ -37,7 +37,7 @@ if ( ! defined( 'AWSM_JOBS_PLUGIN_URL' ) ) {
 	define( 'AWSM_JOBS_PLUGIN_URL', untrailingslashit( plugin_dir_url( __FILE__ ) ) );
 }
 if ( ! defined( 'AWSM_JOBS_PLUGIN_VERSION' ) ) {
-	define( 'AWSM_JOBS_PLUGIN_VERSION', '4.2.2' );
+	define( 'AWSM_JOBS_PLUGIN_VERSION', '4.3.0' );
 }
 if ( ! defined( 'AWSM_JOBS_UPLOAD_DIR_NAME' ) ) {
 	define( 'AWSM_JOBS_UPLOAD_DIR_NAME', 'awsm-job-openings' );
@@ -92,6 +92,7 @@ class AWSM_Job_Openings {
 		add_action( 'plugins_loaded', array( $this, 'upgrade' ) );
 		add_action( 'after_setup_theme', array( $this, 'template_functions' ) );
 		add_action( 'init', array( $this, 'init_actions' ) );
+		add_action( 'init', array( $this, 'register_react_jsx_runtime' ) );
 		add_action( 'wp_head', array( $this, 'awsm_wp_head' ) );
 		add_action( 'awsm_check_for_expired_jobs', array( $this, 'check_date_and_change_status' ) );
 		add_action( 'awsm_jobs_email_digest', array( $this, 'send_email_digest' ) );
@@ -173,8 +174,8 @@ class AWSM_Job_Openings {
 					$req_plugin = sprintf( '<strong>%s</strong>', esc_html__( 'HireZoot', 'wp-job-openings' ) );
 					$plugin     = sprintf( '<strong>%s</strong>', esc_html__( 'Pro Pack', 'wp-job-openings' ) );
 
-					/* translators: %1$s: main plugin, %2$s: current plugin, %3$s: minimum required version of the main plugin, %4$s: plugin update link */
-					printf( esc_html__( 'Update recommended: The %2$s Addon is recommended to be updated to version 4.0 or higher to function seamlessly with the newer version of %1$s.', 'wp-job-openings' ), $req_plugin, $plugin ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+					/* translators: %1$s: main plugin, %2$s: add-on plugin */
+					printf( esc_html__( 'Update recommended: Update the %2$s Addon to the latest version to use all features with this version of %1$s, including advanced Job Schema management.', 'wp-job-openings' ), $req_plugin, $plugin ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 				?>
 			</p>
 		</div>
@@ -197,7 +198,11 @@ class AWSM_Job_Openings {
 
 					$required_pro_version = '4.0';
 
-					if ( version_compare( $pro_version, $required_pro_version, '<' ) ) {
+					// A Pro Pack without Job Schema support can still be 4.0.x, so also detect
+					// the missing feature directly instead of relying on the version number.
+					$has_schema_support = class_exists( 'AWSM_Job_Openings_Pro_Schema' );
+
+					if ( version_compare( $pro_version, $required_pro_version, '<' ) || ! $has_schema_support ) {
 						add_action( 'admin_notices', array( $this, 'pro_version_admin_notice' ) );
 					}
 				}
@@ -361,6 +366,33 @@ class AWSM_Job_Openings {
 		$this->awsm_jobs_taxonomies();
 		$this->awsm_custom_expired_status();
 		$this->register_job_expiry_meta();
+	}
+
+	/**
+	 * Register the `react-jsx-runtime` script on WordPress versions that
+	 * don't provide it (core added it in 6.6).
+	 *
+	 * The @wordpress/scripts builds in blocks/build (and Pro Pack's) list
+	 * `react-jsx-runtime` as a dependency. When a dependency isn't
+	 * registered, WordPress silently drops the dependent script, so on
+	 * WP 6.0-6.5 the Job Overview / Expiry Rules panels, Pro Pack's panels
+	 * chained on them, and the Job Openings block never load. The bundled
+	 * file is core's own copy (React 18.3.1, wp-includes/js/dist/vendor);
+	 * it only wraps the window.React that WP already loads.
+	 *
+	 * @since 4.3.0
+	 */
+	public function register_react_jsx_runtime() {
+		if ( wp_script_is( 'react-jsx-runtime', 'registered' ) ) {
+			return;
+		}
+		wp_register_script(
+			'react-jsx-runtime',
+			AWSM_JOBS_PLUGIN_URL . '/assets/js/vendor/react-jsx-runtime.min.js',
+			array( 'react' ),
+			'18.3.1',
+			true
+		);
 	}
 
 	/**
@@ -576,8 +608,78 @@ class AWSM_Job_Openings {
 			$post_id = wp_insert_post( $post );
 			if ( ! empty( $post_id ) ) {
 				update_option( 'awsm_jobs_default_listing_page_id', $post_id );
+
+				if ( self::can_setup_default_elementor_page() ) {
+					self::setup_default_elementor_page( $post_id );
+				}
 			}
 		}
+	}
+
+	/**
+	 * Checks whether the default job listing page can be built with Elementor.
+	 *
+	 * @return bool
+	 */
+	protected static function can_setup_default_elementor_page() {
+		$can_setup = 'elementor' === self::get_active_page_builder() && class_exists( '\Elementor\Plugin' ) && version_compare( ELEMENTOR_VERSION, '3.5.0', '>=' ) && post_type_supports( 'page', 'elementor' );
+
+		/**
+		 * Filters whether the default job listing page should be built with Elementor.
+		 *
+		 * @param bool $can_setup Whether to build the page with Elementor.
+		 */
+		return apply_filters( 'awsm_jobs_setup_default_elementor_page', $can_setup );
+	}
+
+	/**
+	 * Builds the default job listing page with the Elementor "Job Listings" widget.
+	 * The shortcode in post content is kept as a fallback if Elementor is deactivated.
+	 *
+	 * @param int $post_id The page ID.
+	 */
+	protected static function setup_default_elementor_page( $post_id ) {
+		$widget = array(
+			'id'         => substr( md5( uniqid( 'awsm', true ) ), 0, 7 ),
+			'elType'     => 'widget',
+			'widgetType' => 'awsm-job-listings',
+			'settings'   => new stdClass(),
+			'elements'   => array(),
+		);
+
+		$experiments = isset( \Elementor\Plugin::$instance->experiments ) ? \Elementor\Plugin::$instance->experiments : null;
+		if ( $experiments && $experiments->is_feature_active( 'container' ) ) {
+			$elements = array(
+				array(
+					'id'       => substr( md5( uniqid( 'awsm', true ) ), 0, 7 ),
+					'elType'   => 'container',
+					'settings' => new stdClass(),
+					'elements' => array( $widget ),
+				),
+			);
+		} else {
+			// Legacy Section > Column structure.
+			$elements = array(
+				array(
+					'id'       => substr( md5( uniqid( 'awsm', true ) ), 0, 7 ),
+					'elType'   => 'section',
+					'settings' => new stdClass(),
+					'elements' => array(
+						array(
+							'id'       => substr( md5( uniqid( 'awsm', true ) ), 0, 7 ),
+							'elType'   => 'column',
+							'settings' => array( '_column_size' => 100 ),
+							'elements' => array( $widget ),
+						),
+					),
+				),
+			);
+		}
+
+		update_post_meta( $post_id, '_elementor_data', wp_slash( wp_json_encode( $elements ) ) );
+		update_post_meta( $post_id, '_elementor_edit_mode', 'builder' );
+		update_post_meta( $post_id, '_elementor_template_type', 'wp-page' );
+		update_post_meta( $post_id, '_elementor_version', ELEMENTOR_VERSION );
 	}
 
 	public static function add_shortcode_to_page( $page_id ) {
@@ -1579,7 +1681,7 @@ class AWSM_Job_Openings {
 
 	public function plugin_rating_notice_handler() {
 		$rating_env = apply_filters( 'awsm_jobs_plugin_rating_env', 'WordPress' );
-		$rating_url = apply_filters( 'awsm_jobs_plugin_rating_url', 'https://wordpress.org/support/plugin/wp-job-openings/reviews/?filter=5' );
+		$rating_url = apply_filters( 'awsm_jobs_plugin_rating_url', 'https://wordpress.org/support/plugin/wp-job-openings/reviews/' );
 
 		$rated = intval( get_option( 'awsm_jobs_plugin_rating' ) );
 		if ( $rated !== 1 ) {
@@ -1759,6 +1861,20 @@ class AWSM_Job_Openings {
 			if ( $screen->id === AWSM_Job_Openings_Overview::$screen_id ) {
 				wp_enqueue_style( 'awsm-job-admin-overview' );
 				wp_enqueue_script( 'awsm-job-admin-overview' );
+
+				// Analytics data is only needed on the overview screen, so avoid computing it on every admin request.
+				wp_localize_script(
+					'awsm-job-admin-overview',
+					'awsmJobsAdminOverview',
+					array(
+						'screen_id'      => AWSM_Job_Openings_Overview::$screen_id,
+						'analytics_data' => AWSM_Job_Openings_Overview::get_applications_analytics_data(),
+						'default_option' => get_option( 'awsm_jobs_analytics_data', 'year' ),
+						'i18n'           => array(
+							'chart_label' => esc_html__( 'Applications', 'wp-job-openings' ),
+						),
+					)
+				);
 			}
 		}
 
@@ -1786,6 +1902,12 @@ class AWSM_Job_Openings {
 						'invalid'           => esc_html__( 'Please enter a valid expiry date and time.', 'wp-job-openings' ),
 						'past'              => esc_html__( 'The expiry date and time must be in the future.', 'wp-job-openings' ),
 					),
+					'test_email'      => array(
+						'empty'   => esc_html__( 'Please enter an email address.', 'wp-job-openings' ),
+						'invalid' => esc_html__( 'Please enter a valid email address.', 'wp-job-openings' ),
+						'sending' => esc_html__( 'Sending...', 'wp-job-openings' ),
+						'error'   => esc_html__( 'The test email could not be sent. Please try again.', 'wp-job-openings' ),
+					),
 				),
 				'jobs_timezone_offset'      => self::get_jobs_timezone_offset(),
 				'specs_settings_url'        => admin_url( 'edit.php?post_type=awsm_job_openings&page=awsm-jobs-settings&tab=specifications&subtab=awsm-manage_spec-specifications-nav-subtab' ),
@@ -1794,18 +1916,6 @@ class AWSM_Job_Openings {
 				'awsm_filters_block'        => AWSM_Job_Openings_Block::get_block_filter_specifications(),
 				'awsm_featured_image_block' => AWSM_Job_Openings_Block::get_block_featured_image_size(),
 				'awsm_default_spec_keys'    => self::get_default_spec_keys(),
-			)
-		);
-		wp_localize_script(
-			'awsm-job-admin-overview',
-			'awsmJobsAdminOverview',
-			array(
-				'screen_id'      => AWSM_Job_Openings_Overview::$screen_id,
-				'analytics_data' => AWSM_Job_Openings_Overview::get_applications_analytics_data(),
-				'default_option' => get_option( 'awsm_jobs_analytics_data', 'year' ),
-				'i18n'           => array(
-					'chart_label' => esc_html__( 'Applications', 'wp-job-openings' ),
-				),
 			)
 		);
 	}
@@ -2841,19 +2951,49 @@ class AWSM_Job_Openings {
 			'PER_DIEM'   => __( 'Per Diem', 'wp-job-openings' ),
 			'OTHER'      => __( 'Other', 'wp-job-openings' ),
 		);
-		$default_emp_types = array_flip( array_map( 'sanitize_title', $default_emp_types ) );
+		// Job type slug => Google employmentType. English slugs and common synonyms always match,
+		// so a job type keeps working when the site language (and its translated labels) differ.
+		$emp_type_map = array(
+			'full-time'  => 'FULL_TIME',
+			'fulltime'   => 'FULL_TIME',
+			'part-time'  => 'PART_TIME',
+			'parttime'   => 'PART_TIME',
+			'freelance'  => 'CONTRACTOR',
+			'contract'   => 'CONTRACTOR',
+			'contractor' => 'CONTRACTOR',
+			'temporary'  => 'TEMPORARY',
+			'temp'       => 'TEMPORARY',
+			'intern'     => 'INTERN',
+			'internship' => 'INTERN',
+			'volunteer'  => 'VOLUNTEER',
+			'per-diem'   => 'PER_DIEM',
+			'other'      => 'OTHER',
+		);
+		foreach ( $default_emp_types as $emp_value => $emp_label ) {
+			$emp_type_map[ sanitize_title( $emp_label ) ] = $emp_value;
+		}
+		/**
+		 * Filters the job type slug to Google employmentType map used in the JobPosting schema.
+		 *
+		 * @param array $emp_type_map Job type slug => employmentType value.
+		 */
+		$emp_type_map = apply_filters( 'awsm_job_employment_type_map', $emp_type_map );
 		if ( taxonomy_exists( 'job-type' ) ) {
 			$emp_types = get_the_terms( $post->ID, 'job-type' );
-			if ( ! empty( $emp_types ) ) {
-				$data['employmentType'] = array();
+			if ( ! empty( $emp_types ) && ! is_wp_error( $emp_types ) ) {
+				$employment = array();
 				foreach ( $emp_types as $emp_type ) {
-					$slug = $emp_type->slug;
-					if ( array_key_exists( $slug, $default_emp_types ) ) {
-						$data['employmentType'][] = $default_emp_types[ $slug ];
+					foreach ( array( $emp_type->slug, sanitize_title( $emp_type->name ) ) as $slug ) {
+						if ( isset( $emp_type_map[ $slug ] ) ) {
+							$employment[] = $emp_type_map[ $slug ];
+							break;
+						}
 					}
 				}
-				if ( count( $data['employmentType'] ) === 1 ) {
-					$data['employmentType'] = $data['employmentType'][0];
+				$employment = array_values( array_unique( $employment ) );
+				// Omit employmentType when no job type maps to a Google value; an empty array is invalid.
+				if ( ! empty( $employment ) ) {
+					$data['employmentType'] = count( $employment ) === 1 ? $employment[0] : $employment;
 				}
 			}
 		}
@@ -2887,12 +3027,12 @@ class AWSM_Job_Openings {
 			'@context'    => 'http://schema.org/',
 			'@type'       => 'JobPosting',
 			'title'       => wp_strip_all_tags( get_the_title() ),
-			'description' => get_the_content(),
+			'description' => apply_filters( 'the_content', get_the_content() ),
 			'datePosted'  => get_post_time( 'c' ),
 		);
 		$expiry_on_list   = get_post_meta( $post_id, 'awsm_set_exp_list', true );
 		$expiration_date  = get_post_meta( $post_id, 'awsm_job_expiry', true );
-		$expiration_stamp = ! empty( $expiration_date ) ? strtotime( $expiration_date ) : false;
+		$expiration_stamp = ! empty( $expiration_date ) ? self::get_job_expiry_timestamp( $expiration_date ) : false;
 		if ( $expiry_on_list === 'set_listing' && false !== $expiration_stamp ) {
 			$data['validThrough'] = gmdate( 'c', $expiration_stamp );
 		}
@@ -2912,7 +3052,7 @@ class AWSM_Job_Openings {
 	}
 
 	public function display_structured_data() {
-		if ( ! is_singular( 'awsm_job_openings' ) ) {
+		if ( ! is_singular( 'awsm_job_openings' ) || get_option( 'awsm_jobs_enable_job_schema', 'enable' ) !== 'enable' ) {
 			return;
 		}
 
@@ -3030,7 +3170,7 @@ class AWSM_Job_Openings {
 							ob_start();
 							include self::get_template_path( 'header.php', 'mail' );
 							$header_template  = ob_get_clean();
-							$header_template .= '<div style="padding: 0 15px; font-size: 16px; max-width: 512px; margin: 0 auto;">';
+							$header_template .= '<div style="padding: 0 15px; font-size: 16px; max-width: 512px; margin: 0 auto; overflow-wrap: anywhere; word-break: break-word;">';
 
 							// Footer mail template.
 							ob_start();

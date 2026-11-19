@@ -107,6 +107,47 @@
 	display: none !important;
 }
 
+/*--------Locked (Pro) settings option----------*/
+.awsm-jobs-pro-locked-option {
+	color: #a7aaad;
+	cursor: default;
+}
+
+.awsm-jobs-pro-locked {
+	position: relative;
+	display: inline-block;
+}
+
+.awsm-jobs-pro-ft {
+	opacity: 0;
+	visibility: hidden;
+	transition: all 0.3s ease;
+	position: absolute;
+	left: 100%;
+	top: 50%;
+	transform: translateY(-50%);
+	margin-left: 8px;
+	padding: 4px 8px;
+	border-radius: 4px;
+	background: #161616;
+	color: #6CFAE4;
+	font-size: 11px;
+	line-height: 1;
+	text-decoration: none;
+	white-space: nowrap;
+}
+
+.awsm-jobs-pro-locked:hover .awsm-jobs-pro-ft,
+.awsm-jobs-pro-locked:focus-within .awsm-jobs-pro-ft {
+	opacity: 1;
+	visibility: visible;
+}
+
+.awsm-jobs-pro-ft:hover,
+.awsm-jobs-pro-ft:focus {
+	color: #6CFAE4;
+}
+
 /*--------Locked (Pro) subtab hover tooltip----------*/
 .awsm-nav-subtab-container .subsubsub li.pro-feature {
 	position: relative;
@@ -2936,3 +2977,43 @@ input.awsm-button:disabled {
 }
 
 
+
+/* Notification Customizer: Test Email */
+.awsm-settings-col-right.awsm-jobs-test-email-active .awsm-jobs-test-email-aside + .awsm-settings-aside {
+	margin-top: 15px;
+}
+
+.awsm-jobs-test-email-aside .awsm-jobs-test-email-desc {
+	margin: -8px 0 15px;
+}
+
+.awsm-jobs-test-email-fields {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+}
+
+.awsm-jobs-test-email-fields .awsm-form-control {
+	flex: 1 1 160px;
+	min-width: 0;
+}
+
+.awsm-jobs-test-email-fields .button {
+	flex: 0 0 auto;
+}
+
+.awsm-jobs-test-email-message {
+	margin: 10px 0 0;
+}
+
+.awsm-jobs-test-email-message:empty {
+	display: none;
+}
+
+.awsm-jobs-test-email-message.awsm-jobs-test-email-error {
+	color: #d63638;
+}
+
+.awsm-jobs-test-email-message.awsm-jobs-test-email-success {
+	color: #00a32a;
+}

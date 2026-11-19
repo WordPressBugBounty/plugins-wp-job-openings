@@ -21,6 +21,7 @@ class AWSM_Job_Openings_Settings {
 		add_action( 'admin_init', array( $this, 'register_settings' ) );
 		add_action( 'wp_ajax_settings_switch', array( $this, 'settings_switch_ajax' ) );
 		add_action( 'before_awsm_settings_main_content', array( $this, 'settings_notice' ) );
+		add_filter( 'awsm_jobs_settings_tab_menus', array( $this, 'job_schema_tab_menu' ), 20 );
 
 		add_action( 'update_option_awsm_select_page_listing', array( $this, 'update_awsm_page_listing' ), 10, 2 );
 		add_action( 'update_option_awsm_permalink_slug', array( $this, 'update_awsm_permalink_slug' ), 10, 2 );
@@ -64,6 +65,21 @@ class AWSM_Job_Openings_Settings {
 			'form'           => esc_html__( 'Form', 'wp-job-openings' ),
 			'notification'   => esc_html__( 'Notifications', 'wp-job-openings' ),
 		);
+	}
+
+	/**
+	 * Add the Job Schema tab after the Shortcodes tab (added by Pro Pack), or at the end when it isn't present.
+	 *
+	 * @param array $tab_menus Settings tab menus.
+	 * @return array
+	 */
+	public function job_schema_tab_menu( $tab_menus ) {
+		$schema_tab = array( 'job-schema' => esc_html__( 'Job Schema', 'wp-job-openings' ) );
+		$position   = array_search( 'shortcodes', array_keys( $tab_menus ), true );
+		if ( $position === false ) {
+			return array_merge( $tab_menus, $schema_tab );
+		}
+		return array_merge( array_slice( $tab_menus, 0, $position + 1, true ), $schema_tab, array_slice( $tab_menus, $position + 1, null, true ) );
 	}
 
 	public function setting_subtabs( $section ) {
@@ -350,6 +366,12 @@ class AWSM_Job_Openings_Settings {
 				),
 			),
 
+			'job-schema'     => array(
+				array(
+					'option_name' => 'awsm_jobs_enable_job_schema',
+				),
+			),
+
 			'notification'   => array(
 				array(
 					/** @since 1.3.0 */
@@ -540,7 +562,7 @@ class AWSM_Job_Openings_Settings {
 			'awsm_jobs_author_notification_content' => "This email is to notify you that your job listing for [{job-title}] has just expired. As a result, applicants will no longer be able to apply for this position.\n\nIf you would like to extend the expiration date or remove the listing, please log in to the dashboard and take the necessary steps.\n\nPowered by HireZoot Plugin",
 			'awsm_jobs_notification_customizer'     => array(
 				'logo'        => 'default',
-				'base_color'  => '#05BC9C',
+				'base_color'  => '#96F5E3',
 				'from_email'  => $default_from_email,
 				/* translators: %1$s: Site link, %2$s: Plugin website link */
 				'footer_text' => sprintf( esc_html__( 'Sent from %1$s by %2$s Plugin', 'wp-job-openings' ), '<a href="{site-url}">{site-title}</a>', '<a href="' . AWSM_JOBS_SITE_URL . '">' . esc_html__( 'HireZoot', 'wp-job-openings' ) . '</a>' ),
@@ -906,6 +928,7 @@ class AWSM_Job_Openings_Settings {
 		$input['from_email']  = $this->sanitize_from_email_id( $input['from_email'] );
 		$input['base_color']  = sanitize_text_field( $input['base_color'] );
 		$input['footer_text'] = AWSM_Job_Openings_Mail_Customizer::sanitize_content( $input['footer_text'] );
+		unset( $input['bg_color'] );
 		return $input;
 	}
 
